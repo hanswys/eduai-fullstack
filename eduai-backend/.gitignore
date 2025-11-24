@@ -1,0 +1,24 @@
+.env
+# Local virtual environments
+fastapi-env/
+.venv/
+venv/
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+
+# Tooling caches
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & local data
+*.log
+*.sqlite3
+
+# OS / editor clutter
+.DS_Store
+.vscode/
+.idea/
