@@ -20,7 +20,9 @@ if not GENAI_API_KEY:
     raise ValueError("GOOGLE_API_KEY not found in .env file")
 
 
-PRO_MODEL_ID = "gemini-3-pro-image-preview"
+# PRO_MODEL_ID = "gemini-3-pro-image-preview"
+PRO_MODEL_ID = "gemini-2.5-flash"
+
 # We use 1.5 Flash because it is fast and supports images (Multimodal)
 client = genai.Client(api_key=GENAI_API_KEY)
 
@@ -51,6 +53,7 @@ def health_check():
 
 @app.post("/api/visual-notes")
 async def generate_visual_notes(request: TextRequest):
+    aspect_ratio = "16:9"
     """
     1. Analyzes the user's transcript.
     2. Generates an illustrative diagram.
@@ -61,7 +64,7 @@ async def generate_visual_notes(request: TextRequest):
         Analyze the following transcript and create an image that maps all the key ideas together.
         Transcript: {request.text}
         """
-        print(request.text)
+        # print(request.text)
 
         # response = client.models.generate_content(
         #     model=PRO_MODEL_ID,
@@ -79,26 +82,37 @@ async def generate_visual_notes(request: TextRequest):
         #         print(f"Thought: {part.text}")
         #         continue
 
-        #     image = part.as_image()
-        #     if image:
-        #         buffer = io.BytesIO()
-        #         image.save("test.png")
-        #         image.save(buffer, format="PNG")
-        #         buffer.seek(0)
-                # return StreamingResponse(buffer, media_type="image/png")
-        
-        test_image_path = os.path.join(os.path.dirname(__file__), "maui.jpg")
-        if not os.path.exists(test_image_path):
-            raise HTTPException(
-                status_code=404,
-                detail="Test image not found on server.",
-            )
+            # image = part.as_image()
+            # if image:
+            #     buffer = io.BytesIO()
+            #     image.save("test.png")
+            #     image.save(buffer, format="PNG")
+            #     buffer.seek(0)
+            #     return StreamingResponse(buffer, media_type="image/png")
+        response = client.models.generate_content(
+        model="gemini-2.5-flash-image",
+        contents=[prompt],
+        )
 
-        with Image.open(test_image_path) as img:
-            buffer = io.BytesIO()
-            img.save(buffer, format="PNG")
-            buffer.seek(0)
-            return StreamingResponse(buffer, media_type="image/png")
+        for part in response.parts:
+            if part.text is not None:
+                print(part.text)
+            elif part.inline_data is not None:
+                image = part.as_image()
+                image.save("generated_image.png")
+        
+        # test_image_path = os.path.join(os.path.dirname(__file__), "maui.jpg")
+        # if not os.path.exists(test_image_path):
+        #     raise HTTPException(
+        #         status_code=404,
+        #         detail="Test image not found on server.",
+        #     )
+
+        # with Image.open(test_image_path) as img:
+        #     buffer = io.BytesIO()
+        #     img.save(buffer, format="PNG")
+        #     buffer.seek(0)
+        #     return StreamingResponse(buffer, media_type="image/png")
 
     except HTTPException:
         raise
