@@ -98,21 +98,24 @@ async def generate_visual_notes(request: TextRequest):
             if part.text is not None:
                 print(part.text)
             elif part.inline_data is not None:
-                image = part.as_image()
-                image.save("generated_image.png")
+                # Get raw bytes directly from inline_data
+                image_bytes = part.inline_data.data
+                
+                # Save to disk for debugging (optional)
+                try:
+                    with open("images/generated_image.png", "wb") as f:
+                        f.write(image_bytes)
+                except Exception as e:
+                    print(f"Error saving to disk: {e}")
+                
+                # Return raw bytes directly to frontend
+                return StreamingResponse(io.BytesIO(image_bytes), media_type="image/png")
         
-        # test_image_path = os.path.join(os.path.dirname(__file__), "maui.jpg")
-        # if not os.path.exists(test_image_path):
-        #     raise HTTPException(
-        #         status_code=404,
-        #         detail="Test image not found on server.",
-        #     )
-
-        # with Image.open(test_image_path) as img:
-        #     buffer = io.BytesIO()
-        #     img.save(buffer, format="PNG")
-        #     buffer.seek(0)
-        #     return StreamingResponse(buffer, media_type="image/png")
+        # If no image was found in the response, raise an error
+        raise HTTPException(
+            status_code=500,
+            detail="No image was generated in the response"
+        )
 
     except HTTPException:
         raise
