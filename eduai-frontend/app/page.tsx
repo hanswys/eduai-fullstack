@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
+import { addToWaitlist } from './actions'; // Import the separated server action
 import { 
   BookOpen, 
   Sparkles, 
@@ -14,165 +14,60 @@ import {
   Globe,
   Zap,
   Check,
-  Mail,     // Added for waitlist
-  Loader2   // Added for waitlist
+  Mail,
+  Loader2
 } from 'lucide-react';
 
-// --- (OPTIONAL) PRICING COMPONENT PRESERVED BUT UNUSED ---
-/*
-interface PricingCardProps {
-  tier: string;
-  price: string;
-  description: string;
-  features: React.ReactNode[];
-  highlighted?: boolean;
-  buttonLabel?: string;
-}
-
-const PricingCard: React.FC<PricingCardProps> = ({ 
-  tier, 
-  price, 
-  description, 
-  features, 
-  highlighted = false, 
-  buttonLabel = "Get Started" 
-}) => (
-  // ... (Previous Pricing Card Code) ...
-);
-*/
-
-// --- UPDATED WAITLIST COMPONENT ---
-const WaitlistSection = () => {
+export default function LandingPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // State for Waitlist Form
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [message, setMessage] = useState(''); // To store backend feedback
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // --- FORM HANDLER ---
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email) return;
     
+    console.log('Form submitted with email:', email); // Debug log
     setStatus('loading');
-    setMessage('');
+    setErrorMessage('');
 
     try {
-      const response = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      // Create FormData to pass to the Server Action
+      const formData = new FormData();
+      formData.append('email', email);
 
-      if (!response.ok) {
-        throw new Error('Failed to join');
-      }
-
-      const data = await response.json();
-      setStatus('success');
-      setMessage(data.message || "You're on the list!");
-      setEmail(''); // Clear input
+      console.log('Calling addToWaitlist server action...'); // Debug log
+      // Call the external Server Action
+      const result = await addToWaitlist(formData);
+      console.log('Server action result:', result); // Debug log
       
+      setStatus('success');
+      setEmail('');
     } catch (error) {
-      console.error(error);
+      console.error('Error in handleSubmit:', error);
       setStatus('error');
-      setMessage("Something went wrong. Please try again.");
+      setErrorMessage(
+        error instanceof Error 
+          ? error.message 
+          : "Something went wrong. Please try again."
+      );
     }
   };
 
   return (
-    <section id="waitlist" className="relative z-10 py-24 bg-slate-900 text-white overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-600/30 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-        {status === 'success' ? (
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-12 animate-in fade-in zoom-in duration-500">
-            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-900/20">
-              <Check className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-3xl font-bold mb-4">You're on the list!</h2>
-            <p className="text-slate-300 text-lg mb-8">
-              {message} We'll notify you as soon as spots open up.
-            </p>
-            <button 
-              onClick={() => { setStatus('idle'); setMessage(''); }}
-              className="text-sm font-medium text-indigo-300 hover:text-white transition"
-            >
-              Register another email
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold tracking-wide uppercase mb-6">
-              <Sparkles className="w-3 h-3" />
-              <span>Limited Early Access</span>
-            </div>
-            
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
-              Ready to upgrade your brain?
-            </h2>
-            <p className="text-lg md:text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-              We are currently in private beta rolling out features to ensure the highest quality experience. Join the waitlist to secure your spot.
-            </p>
-
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  placeholder="enter.your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white/10 transition"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={status === 'loading'}
-                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {status === 'loading' ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    Join Waitlist <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
-            </form>
-            
-            {status === 'error' && (
-              <p className="mt-4 text-sm text-red-400 animate-pulse">
-                {message}
-              </p>
-            )}
-
-            <p className="mt-4 text-sm text-slate-500">
-              Join 2,000+ students waiting for access. No spam, ever.
-            </p>
-          </>
-        )}
-      </div>
-    </section>
-  );
-};
-export default function LandingPage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  return (
     <div className="min-h-screen bg-[#FAFAFA] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       
-      {/* ... (Background Decoration kept same) ... */}
+      {/* Background Decoration */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-indigo-100/50 blur-3xl opacity-60 mix-blend-multiply"></div>
         <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-purple-100/50 blur-3xl opacity-60 mix-blend-multiply"></div>
       </div>
 
-      {/* --- NAVBAR --- */}
+      {/* Navbar */}
       <nav className="fixed top-0 w-full bg-white/70 backdrop-blur-lg z-50 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -184,19 +79,18 @@ export default function LandingPage() {
             </div>
             
             <div className="hidden md:flex items-center space-x-8">
-              <Link href="#features" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Capabilities</Link>
-              <Link href="#waitlist" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Access</Link>
+              <a href="#features" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Capabilities</a>
+              <a href="#waitlist" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Access</a>
             </div>
             
             <div className="hidden md:flex items-center gap-4">
-               {/* Updated CTA to scroll to Waitlist */}
-               <Link href="#waitlist" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition">
+               <a href="#waitlist" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition">
                   Sign In
-               </Link>
-               <Link href="#waitlist" className="group relative inline-flex h-9 items-center justify-center overflow-hidden rounded-full bg-slate-900 px-6 font-medium text-white transition duration-300 hover:bg-slate-800 shadow-lg shadow-slate-200">
+               </a>
+               <a href="#waitlist" className="group relative inline-flex h-9 items-center justify-center overflow-hidden rounded-full bg-slate-900 px-6 font-medium text-white transition duration-300 hover:bg-slate-800 shadow-lg shadow-slate-200">
                   <span className="mr-2">Join Waitlist</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-               </Link>
+               </a>
             </div>
 
             <div className="md:hidden">
@@ -206,11 +100,21 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
+        
+        {/* Mobile Menu Dropdown */}
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-16 left-0 w-full bg-white border-b border-slate-100 p-4 flex flex-col gap-4 shadow-xl animate-in slide-in-from-top-5">
+            <a href="#features" className="text-slate-600 font-medium">Capabilities</a>
+            <a href="#waitlist" className="text-slate-600 font-medium">Access</a>
+            <hr className="border-slate-100"/>
+            <a href="#waitlist" className="text-slate-600 font-medium">Log in</a>
+            <a href="#waitlist" className="bg-indigo-600 text-white py-3 px-4 rounded-xl text-center font-medium">Join Waitlist</a>
+          </div>
+        )}
       </nav>
 
-      {/* --- HERO SECTION --- */}
+      {/* Hero Section */}
       <main className="relative z-10 pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* ... (Hero content kept exactly the same as before) ... */}
         <div className="text-center max-w-4xl mx-auto space-y-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-semibold tracking-wide uppercase animate-fade-in-up">
             <Sparkles className="w-3 h-3" />
@@ -226,14 +130,12 @@ export default function LandingPage() {
             Edu.ai transforms your messy notes into beautiful diagrams and instantly translates textbook photos into your native language.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            {/* Updated Hero CTA to point to Waitlist */}
-            <Link href="#waitlist" className="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-700 transition shadow-xl shadow-indigo-200 hover:shadow-2xl hover:shadow-indigo-300 transform hover:-translate-y-1 flex items-center justify-center gap-2">
+            <a href="#waitlist" className="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-700 transition shadow-xl shadow-indigo-200 hover:shadow-2xl hover:shadow-indigo-300 transform hover:-translate-y-1 flex items-center justify-center gap-2">
               Get Early Access <ArrowRight className="w-5 h-5" />
-            </Link>
-            {/* Demo button can route to dashboard for you to test locally */}
-            <Link href="/dashboard" className="w-full sm:w-auto px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-2xl font-semibold hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2">
+            </a>
+            <a href="/dashboard" className="w-full sm:w-auto px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-2xl font-semibold hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2">
               <Zap className="w-5 h-5 text-yellow-500" /> View Demo
-            </Link>
+            </a>
           </div>
           <div className="pt-12 flex flex-col items-center gap-4">
             <p className="text-sm text-slate-500 font-medium">Trusted by students at</p>
@@ -246,12 +148,10 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* --- BENTO GRID FEATURES --- */}
+      {/* Features Section */}
       <section id="features" className="relative z-10 py-24 bg-white border-t border-slate-100">
-         {/* ... (Feature section kept exactly the same as before) ... */}
          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* ... Content ... */}
-             <div className="text-center mb-16">
+            <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-slate-900">Your academic superpowers.</h2>
             <p className="mt-4 text-slate-600">Two core engines designed to accelerate comprehension.</p>
           </div>
@@ -302,24 +202,86 @@ export default function LandingPage() {
          </div>
       </section>
 
-      {/* --- PRICING SECTION (COMMENTED OUT FOR WAITLIST PHASE) --- */}
-      {/* <section id="pricing" className="relative z-10 py-24 bg-slate-50 border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-slate-900">Simple, transparent pricing.</h2>
-            <p className="mt-4 text-slate-600">Start for free, upgrade when you need more power.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
-             ... (Pricing Cards) ...
-          </div>
+      {/* Waitlist Section with Server Action */}
+      <section id="waitlist" className="relative z-10 py-24 bg-slate-900 text-white overflow-hidden">
+        {/* Background Elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-600/30 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+            
+            {status === 'success' ? (
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-12 animate-in fade-in zoom-in duration-500">
+                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-900/20">
+                  <Check className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-3xl font-bold mb-4">You're on the list!</h2>
+                <p className="text-slate-300 text-lg mb-8">
+                  We've saved your spot. Watch your inbox for updates.
+                </p>
+                <button 
+                  onClick={() => setStatus('idle')}
+                  className="text-sm font-medium text-indigo-300 hover:text-white transition"
+                >
+                  Register another email
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold tracking-wide uppercase mb-6">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Limited Early Access</span>
+                </div>
+                
+                <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
+                  Ready to upgrade your brain?
+                </h2>
+                <p className="text-lg md:text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+                  We are currently in private beta. Join the waitlist to secure your spot when we launch.
+                </p>
+
+                {/* FORM USING SUBMIT HANDLER TO CALL SERVER ACTION */}
+                <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      placeholder="enter.your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-11 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white/10 transition"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={status === 'loading'}
+                    className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                     {status === 'loading' ? <Loader2 className="animate-spin w-5 h-5"/> : <>Join Waitlist <ArrowRight className="w-5 h-5" /></>}
+                  </button>
+                </form>
+
+                {status === 'error' && (
+                  <p className="mt-4 text-sm text-red-400 animate-pulse">
+                    {errorMessage}
+                  </p>
+                )}
+
+                <p className="mt-4 text-sm text-slate-500">
+                  Join 2,000+ students waiting for access. No spam, ever.
+                </p>
+              </>
+            )}
         </div>
       </section>
-      */}
 
-      {/* --- WAITLIST SECTION (ACTIVE) --- */}
-      <WaitlistSection />
-
-      {/* --- FOOTER --- */}
+      {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-12 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
@@ -329,11 +291,11 @@ export default function LandingPage() {
             <span className="font-bold text-slate-900">edu.ai</span>
           </div>
           <div className="text-sm text-slate-500">
-            © 2024 Edu.ai Inc. All rights reserved.
+            © 2025 Edu.ai Inc. All rights reserved.
           </div>
           <div className="flex gap-6">
-            <Link href="#" className="text-slate-400 hover:text-slate-900 transition">Twitter</Link>
-            <Link href="#" className="text-slate-400 hover:text-slate-900 transition">GitHub</Link>
+            <a href="#" className="text-slate-400 hover:text-slate-900 transition">Twitter</a>
+            <a href="#" className="text-slate-400 hover:text-slate-900 transition">GitHub</a>
           </div>
         </div>
       </footer>
