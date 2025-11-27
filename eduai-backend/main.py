@@ -20,8 +20,8 @@ if not GENAI_API_KEY:
     raise ValueError("GOOGLE_API_KEY not found in .env file")
 
 
-# PRO_MODEL_ID = "gemini-3-pro-image-preview"
-PRO_MODEL_ID = "gemini-2.5-flash"
+PRO_MODEL_ID = "gemini-3-pro-image-preview"
+# PRO_MODEL_ID = "gemini-2.5-flash"
 
 # We use 1.5 Flash because it is fast and supports images (Multimodal)
 client = genai.Client(api_key=GENAI_API_KEY)
@@ -90,7 +90,7 @@ async def generate_visual_notes(request: TextRequest):
             #     buffer.seek(0)
             #     return StreamingResponse(buffer, media_type="image/png")
         response = client.models.generate_content(
-        model="gemini-2.5-flash-image",
+        model=PRO_MODEL_ID,
         contents=[prompt],
         )
 
@@ -123,37 +123,107 @@ async def generate_visual_notes(request: TextRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/translate-image")
-async def translate_image(
+@app.post("/api/visual-translation")
+async def generate_visual_translation(
     file: UploadFile = File(...), 
-    lang: str = Form(...)
+    target_lang: str = Form(...)
 ):
-    print(file)
-    print(lang)
+    """
+    1. Receives an image and a target language.
+    2. Uses Gemini to regenerate the image with translated text.
+    3. Returns the image bytes to the frontend.
+    """
+    try:
+        # 1. Read and Process the Input Image
+        file_bytes = await file.read()
+        input_image = Image.open(io.BytesIO(file_bytes))
 
-    # """
-    # 1. Receives an image.
-    # 2. Sends image + language 
-    # 3. Returns the translated text in the image.
-    # """
-    # try:
-    #     # Read image file
-    #     contents = await file.read()
-    #     image = Image.open(io.BytesIO(contents))
+        # 2. Construct the Prompt
+        prompt = f"""
+        Act as a professional translator and graphic designer.
+        Analyze the provided image. 
+        Generate a new image that is visually identical to the original, 
+        but translate all text, labels, and headers into {target_lang}.
+        Maintain the original layout and style perfectly.
+        """
 
-    #     prompt = f"""
-    #     Look at this image. 
-    #     1. Identify the text in the image.
-    #     2. Translate that text into {lang}, keeping everything else the same.
-    #     """
+        # 3. Call the API using the new syntax
+        # Note: We use 'gemini-2.0-flash-exp' as it is the current standard for 
+        # image-in/image-out. You can swap this string if you have access to others.
+        response = client.models.generate_content(
+            model=PRO_MODEL_ID,
+            contents=[prompt, input_image],
+            config=types.GenerateContentConfig(
+                response_modalities=['TEXT', 'IMAGE'],
+                temperature=0.4, # Lower temperature for more accurate translation/reproduction
+            )
+        )
 
-    #     response = model.generate_content([prompt, image])
+        # 4. Iterate through parts to find the image
+        # Using the exact syntax you requested: if image := part.as_image()
+        if response.candidates and response.candidates[0].content.parts:
+            for part in response.candidates[0].content.parts:
+                # Prefer raw inline data bytes if available (avoids save() quirks)
+                if part.inline_data and part.inline_data.data:
+                    image_bytes = part.inline_data.data
+                    
+                    # Optional: persist to disk for debugging
+                    try:
+                        with open("images/visual_translation_output.png", "wb") as f:
+                            f.write(image_bytes)
+                    except Exception as disk_error:
+                        print(f"Failed to write debug image: {disk_error}")
+                    
+                    return StreamingResponse(
+                        io.BytesIO(image_bytes),
+                        media_type=part.inline_data.mime_type or "image/png",
+                    )
+                
+                # Fallback: attempt to convert helper image to bytes
+                if image := part.as_image():
+                    buffer = io.BytesIO()
+                    image.save(buffer, "PNG")
+                    buffer.seek(0)
+                    return StreamingResponse(buffer, media_type="image/png")
+
+        # If loop finishes without finding an image
+        raise HTTPException(status_code=500, detail="Model generated text but no image.")
+
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# @app.post("/api/translate-image")
+# async def translate_image(
+#     file: UploadFile = File(...), 
+#     lang: str = Form(...)
+# ):
+#     print(file)
+#     print(lang)
+
+#     # """
+#     # 1. Receives an image.
+#     # 2. Sends image + language 
+#     # 3. Returns the translated text in the image.
+#     # """
+#     # try:
+#     #     # Read image file
+#     #     contents = await file.read()
+#     #     image = Image.open(io.BytesIO(contents))
+
+#     #     prompt = f"""
+#     #     Look at this image. 
+#     #     1. Identify the text in the image.
+#     #     2. Translate that text into {lang}, keeping everything else the same.
+#     #     """
+
+#     #     response = model.generate_content([prompt, image])
         
-    #     return {"translated_text": response.text}
+#     #     return {"translated_text": response.text}
 
-    # except Exception as e:
-    #     print(e)
-    #     raise HTTPException(status_code=500, detail=str(e))
+#     # except Exception as e:
+#     #     print(e)
+#     #     raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

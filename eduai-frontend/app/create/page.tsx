@@ -462,9 +462,7 @@ const TextToImageTool = () => {
 //   );
 // };
 
-
-// --- SUB-COMPONENT: EDULENS TOOL (Image + Lang -> Image) ---
-const EduLensTool = () => {
+export const EduLensTool = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [targetLang, setTargetLang] = useState('Spanish');
@@ -482,17 +480,69 @@ const EduLensTool = () => {
   };
 
   // Handle "Translate" Action
-  const handleTranslate = () => {
+  const handleTranslate = async () => {
     if (!imageFile) return;
     setIsProcessing(true);
-    
-    // Simulate API Call to LLM Image Generator
-    setTimeout(() => {
+    setResultImage(null);
+
+    const formData = new FormData();
+    formData.append('file', imageFile);
+    formData.append('target_lang', targetLang);
+
+    try {
+      const response = await fetch('/api/visual-translation', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = 'Translation failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData?.detail || errorData?.error || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        console.error('Translation error:', errorMessage, 'Status:', response.status);
+        alert(`Translation failed: ${errorMessage}`);
+        return;
+      }
+
+      // Important: Backend returns a raw image, not JSON.
+      // We convert the response blob into a URL the <img> tag can read.
+      const imageBlob = await response.blob();
+      
+      // Verify it's actually an image
+      if (!imageBlob.type.startsWith('image/')) {
+        throw new Error('Server returned non-image data');
+      }
+      
+      const imageObjectUrl = URL.createObjectURL(imageBlob);
+      setResultImage(imageObjectUrl);
+
+    } catch (error) {
+      console.error("Error generating image:", error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Failed to translate image. Please try again.";
+      alert(errorMessage);
+    } finally {
       setIsProcessing(false);
-      // MOCK RESULT: In reality, this URL would come from your backend
-      // Using a slightly different image to simulate "Translation" result
-      setResultImage("https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=800&sat=-100"); 
-    }, 3000);
+    }
+  };
+
+  // Helper to download the generated image
+  const handleDownload = () => {
+    if (resultImage) {
+      const link = document.createElement('a');
+      link.href = resultImage;
+      link.download = `edulens-translated-${targetLang}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   return (
@@ -544,7 +594,6 @@ const EduLensTool = () => {
           {previewUrl ? (
             <div className="relative w-full h-full bg-slate-900 flex items-center justify-center">
               <img src={previewUrl} alt="Original" className="max-w-full max-h-full object-contain opacity-90" />
-              {/* Replace Button Overlay */}
               <label className="absolute bottom-4 right-4 cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-lg shadow-lg font-medium hover:bg-slate-100 transition text-sm">
                 Change Image
                 <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
@@ -572,7 +621,10 @@ const EduLensTool = () => {
              <div className="w-full h-full bg-slate-900 flex items-center justify-center relative animate-in fade-in duration-700">
                <img src={resultImage} alt="Translated" className="max-w-full max-h-full object-contain" />
                <div className="absolute bottom-4 right-4">
-                  <button className="bg-white text-slate-900 px-4 py-2 rounded-lg shadow-lg font-medium hover:bg-purple-50 hover:text-purple-600 transition flex items-center gap-2">
+                  <button 
+                    onClick={handleDownload}
+                    className="bg-white text-slate-900 px-4 py-2 rounded-lg shadow-lg font-medium hover:bg-purple-50 hover:text-purple-600 transition flex items-center gap-2"
+                  >
                     <Download className="w-4 h-4"/> Save Image
                   </button>
                </div>
@@ -581,10 +633,12 @@ const EduLensTool = () => {
             <div className="text-center p-8 max-w-xs">
               {isProcessing ? (
                 <div className="flex flex-col items-center animate-pulse">
-                   <div className="w-16 h-16 bg-purple-200 rounded-2xl mb-4"></div>
+                   <div className="w-16 h-16 bg-purple-200 rounded-2xl mb-4 flex items-center justify-center">
+                     <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+                   </div>
                    <div className="h-4 w-32 bg-slate-200 rounded mb-2"></div>
                    <div className="h-3 w-24 bg-slate-200 rounded"></div>
-                   <p className="mt-4 text-purple-600 font-bold text-sm">Generative Fill in progress...</p>
+                   <p className="mt-4 text-purple-600 font-bold text-sm">Regenerating image with AI...</p>
                 </div>
               ) : (
                 <>
