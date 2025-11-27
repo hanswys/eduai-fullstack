@@ -1,22 +1,34 @@
 'use client';
 
 import React, { useState } from 'react';
-import { addToWaitlist } from './actions'; // Import the separated server action
+// import { addToWaitlist } from './actions'; // UNCOMMENT THIS IN PRODUCTION
 import { 
   BookOpen, 
   Sparkles, 
-  Camera, 
   Image as ImageIcon, 
   ArrowRight, 
-  CheckCircle2, 
   Menu, 
   X,
   Globe,
   Zap,
   Check,
+  CheckCircle2, 
   Mail,
-  Loader2
+  Loader2,
+  FileText,
+  Share2,
+  Wand2,
+  BrainCircuit,
+  Camera
 } from 'lucide-react';
+
+// --- SIMULATION FOR PREVIEW (DELETE IN PRODUCTION) ---
+const addToWaitlist = async (formData: FormData) => {
+  console.log("Simulating server submission for:", formData.get('email'));
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  return { success: true };
+}
+// -----------------------------------------------------
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,19 +43,13 @@ export default function LandingPage() {
     e.preventDefault();
     if (!email) return;
     
-    console.log('Form submitted with email:', email); // Debug log
     setStatus('loading');
     setErrorMessage('');
 
     try {
-      // Create FormData to pass to the Server Action
       const formData = new FormData();
       formData.append('email', email);
-
-      console.log('Calling addToWaitlist server action...'); // Debug log
-      // Call the external Server Action
-      const result = await addToWaitlist(formData);
-      console.log('Server action result:', result); // Debug log
+      await addToWaitlist(formData);
       
       setStatus('success');
       setEmail('');
@@ -59,12 +65,13 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-[#FAFAFA] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden">
       
-      {/* Background Decoration */}
+      {/* Dynamic Background Decoration */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-indigo-100/50 blur-3xl opacity-60 mix-blend-multiply"></div>
-        <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-purple-100/50 blur-3xl opacity-60 mix-blend-multiply"></div>
+        <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-indigo-200/40 blur-[100px] opacity-60 mix-blend-multiply animate-pulse"></div>
+        <div className="absolute top-[30%] left-[-10%] w-[500px] h-[500px] rounded-full bg-purple-200/40 blur-[100px] opacity-60 mix-blend-multiply"></div>
+        <div className="absolute bottom-[10%] left-[20%] w-[400px] h-[400px] rounded-full bg-blue-200/40 blur-[100px] opacity-50 mix-blend-multiply"></div>
       </div>
 
       {/* Navbar */}
@@ -80,15 +87,15 @@ export default function LandingPage() {
             
             <div className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Capabilities</a>
-              <a href="#waitlist" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Access</a>
+              <a href="#waitlist" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Pricing</a>
             </div>
             
             <div className="hidden md:flex items-center gap-4">
-               <a href="#waitlist" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition">
+               <a href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition">
                   Sign In
                </a>
-               <a href="#waitlist" className="group relative inline-flex h-9 items-center justify-center overflow-hidden rounded-full bg-slate-900 px-6 font-medium text-white transition duration-300 hover:bg-slate-800 shadow-lg shadow-slate-200">
-                  <span className="mr-2">Join Waitlist</span>
+               <a href="/login" className="group relative inline-flex h-9 items-center justify-center overflow-hidden rounded-full bg-slate-900 px-6 font-medium text-white transition duration-300 hover:bg-slate-800 shadow-lg shadow-slate-200">
+                  <span className="mr-2">Get Started</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                </a>
             </div>
@@ -105,45 +112,48 @@ export default function LandingPage() {
         {isMenuOpen && (
           <div className="md:hidden absolute top-16 left-0 w-full bg-white border-b border-slate-100 p-4 flex flex-col gap-4 shadow-xl animate-in slide-in-from-top-5">
             <a href="#features" className="text-slate-600 font-medium">Capabilities</a>
-            <a href="#waitlist" className="text-slate-600 font-medium">Access</a>
-            <hr className="border-slate-100"/>
-            <a href="#waitlist" className="text-slate-600 font-medium">Log in</a>
-            <a href="#waitlist" className="bg-indigo-600 text-white py-3 px-4 rounded-xl text-center font-medium">Join Waitlist</a>
+            <a href="/login" className="text-slate-600 font-medium">Log in</a>
+            <a href="/login" className="bg-indigo-600 text-white py-3 px-4 rounded-xl text-center font-medium">Get Started</a>
           </div>
         )}
       </nav>
 
-      {/* Hero Section */}
+      {/* --- SIMPLIFIED HERO SECTION --- */}
       <main className="relative z-10 pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center max-w-4xl mx-auto space-y-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-semibold tracking-wide uppercase animate-fade-in-up">
+        <div className="text-center max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-700 fade-in">
+          
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-semibold tracking-wide uppercase">
             <Sparkles className="w-3 h-3" />
-            <span>Powered by GPT-4o & DeepL</span>
+            <span>Intelligent Study Companion</span>
           </div>
+          
           <h1 className="text-5xl md:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
-            Study smarter, not <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 animate-gradient">
-              harder with AI.
+            From messy thoughts to <br className="hidden md:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 animate-gradient bg-300% bg-left">
+              perfect clarity.
             </span>
           </h1>
+          
           <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Edu.ai transforms your messy notes into beautiful diagrams and instantly translates textbook photos into your native language.
+            Stop drowning in unstructured notes. Our AI visual engine instantly organizes your scattered inputs—images, voice, or text—into beautiful, structured knowledge maps.
           </p>
+          
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <a href="#waitlist" className="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-700 transition shadow-xl shadow-indigo-200 hover:shadow-2xl hover:shadow-indigo-300 transform hover:-translate-y-1 flex items-center justify-center gap-2">
+            <a href="/login" className="w-full sm:w-auto px-10 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition shadow-xl shadow-indigo-200 hover:shadow-2xl hover:shadow-indigo-300 transform hover:-translate-y-1 flex items-center justify-center gap-2">
               Get Early Access <ArrowRight className="w-5 h-5" />
             </a>
-            <a href="/dashboard" className="w-full sm:w-auto px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-2xl font-semibold hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2">
-              <Zap className="w-5 h-5 text-yellow-500" /> View Demo
-            </a>
           </div>
-          <div className="pt-12 flex flex-col items-center gap-4">
-            <p className="text-sm text-slate-500 font-medium">Trusted by students at</p>
-            <div className="flex gap-8 opacity-50 grayscale hover:grayscale-0 transition duration-500">
-              <span className="font-serif font-bold text-xl">Harvard</span>
-              <span className="font-mono font-bold text-xl">MIT</span>
-              <span className="font-sans font-bold text-xl tracking-tighter">Stanford</span>
+          
+          {/* Social Proof */}
+          <div className="pt-8 flex flex-col items-center justify-center gap-4 text-sm text-slate-500 font-medium">
+            <div className="flex -space-x-3">
+               {[1,2,3,4].map(i => (
+                  <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-200 overflow-hidden">
+                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i+20}`} alt="User" />
+                  </div>
+               ))}
             </div>
+            <p>Used by students at MIT, Stanford & Oxford</p>
           </div>
         </div>
       </main>
