@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth } from "@/context/authContext"; // 1. Import the AuthProvider
+
 import { 
   BookOpen, 
   ArrowRight, 
@@ -8,26 +10,51 @@ import {
   Lock, 
   Loader2, 
   Github,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 
+// // --- MOCK AUTH HOOK (DELETE IN PRODUCTION) ---
+// // This mimics the behavior of your AuthContext for this preview.
+// const useAuth = () => {
+//   return {
+//     signInWithGoogle: async () => {
+//       console.log("Simulating Google Sign In...");
+//       await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
+//       // In a real app, the Context would update 'user' state here
+//       return true;
+//     }
+//   };
+// };
+// // ---------------------------------------------
+
 export default function LoginPage() {
+  const { signInWithGoogle } = useAuth(); // Destructure the function
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
+  // --- OAUTH HANDLER ---
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      await signInWithGoogle();
+      // On success, redirect to dashboard (Simulated)
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to sign in with Google. Please check your connection.');
+      setIsLoading(false);
+    }
+  };
+
+  // --- EMAIL HANDLER (Placeholder for now) ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
-
-    setIsLoading(true);
-    
-    // Simulate Auth Delay
-    setTimeout(() => {
-      // Redirect to Dashboard
-      window.location.href = '/dashboard';
-    }, 1500);
+    setError('Email/Password login is currently disabled for this beta. Please use Google.');
   };
 
   return (
@@ -65,11 +92,20 @@ export default function LoginPage() {
             
             {/* Social Auth */}
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <button className="flex items-center justify-center gap-2 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm font-medium text-slate-700">
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
+              <button 
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+                type="button"
+                className="flex items-center justify-center gap-2 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm font-medium text-slate-700 bg-white disabled:opacity-50"
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />}
                 Google
               </button>
-              <button className="flex items-center justify-center gap-2 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm font-medium text-slate-700">
+              <button 
+                type="button"
+                disabled // Disabled for now
+                className="flex items-center justify-center gap-2 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm font-medium text-slate-700 bg-white opacity-60 cursor-not-allowed"
+              >
                 <Github className="w-5 h-5" />
                 GitHub
               </button>
@@ -83,6 +119,14 @@ export default function LoginPage() {
                 <span className="bg-white px-2 text-slate-400 font-medium">Or continue with</span>
               </div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 text-sm text-red-600">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -116,24 +160,24 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition text-slate-900"
                     placeholder="••••••••"
+                    minLength={6}
                   />
                 </div>
               </div>
 
               {!isLogin && (
                 <div className="flex items-start gap-2 p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-xs text-indigo-700">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                   <p>By signing up, you agree to our Terms of Service and Privacy Policy.</p>
                 </div>
               )}
 
               <button 
                 type="submit" 
-                disabled={isLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-2"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 mt-2"
               >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isLogin ? 'Sign In' : 'Create Account')}
-                {!isLoading && <ArrowRight className="w-4 h-4" />}
+                {isLogin ? 'Sign In' : 'Create Account'}
+                <ArrowRight className="w-4 h-4" />
               </button>
             </form>
 
@@ -144,7 +188,7 @@ export default function LoginPage() {
             <p className="text-sm text-slate-600">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
               <button 
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => { setIsLogin(!isLogin); setError(''); }}
                 className="ml-1 text-indigo-600 font-bold hover:underline"
               >
                 {isLogin ? 'Sign up' : 'Log in'}
