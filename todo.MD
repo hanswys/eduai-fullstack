@@ -10,7 +10,7 @@ To-Dos:
 Profile Page 
 Setup DB for users -> tracking tokens, tool history (Store images) !
 Onboarding smoother -> try free version (7 tokens a week) ?
-Feedback -> Both landing page and dashboard page **
+[/] Feedback (UI Created)
 
 Review:
 [x] Tools work with gemini llm
