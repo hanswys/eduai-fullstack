@@ -1,9 +1,22 @@
-Snapducate
-SnapLearn
-SnapWell
-edufy
-transformy
+Snap - ducate
+edufy *
 
+Externals:
+Buy domain
+MailChimp?
 
-Cursor limit ran out 
-Need to find a way to integrate oauth firebase into login 
+To-Dos:
+[x] Google Account reflects profile 
+Profile Page 
+Setup DB for users -> tracking tokens, tool history (Store images) !
+Onboarding smoother -> try free version (7 tokens a week) ?
+Feedback -> Both landing page and dashboard page **
+
+Review:
+[x] Tools work with gemini llm
+
+Future Improvements:
+
+Landing Page -> Get Free Early Access -> Straight to MVP Feature Page
+(Make them love the product and get them to subscribe from there)
+

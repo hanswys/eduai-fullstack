@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import Link from "next/link"; // Replaced with <a> for preview
+import { useAuth } from "@/context/authContext"; // Replaced with mock for preview
 import {
   BookOpen,
   LayoutDashboard,
@@ -13,12 +14,33 @@ import {
   UploadCloud,
   Languages,
   Copy,
-  Check,
   Loader2,
   ChevronRight,
   MoreHorizontal,
   Plus,
 } from "lucide-react";
+
+// // --- MOCK AUTH HOOK (DELETE IN PRODUCTION) ---
+// // This allows the dashboard to render in this preview without the external Context file.
+// const useAuth = () => {
+//   const [loading, setLoading] = useState(true);
+  
+//   useEffect(() => {
+//     const timer = setTimeout(() => setLoading(false), 800); // Simulate auth check
+//     return () => clearTimeout(timer);
+//   }, []);
+
+//   return {
+//     user: {
+//       displayName: "Alex Student",
+//       email: "alex@edu.ai",
+//       photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
+//     },
+//     logout: () => console.log("Simulating Logout..."),
+//     loading
+//   };
+// };
+// // ---------------------------------------------
 
 // --- TYPES ---
 type ToolTab = "profile" | "visual-notes" | "edulens" | "settings";
@@ -29,9 +51,11 @@ type ToolTab = "profile" | "visual-notes" | "edulens" | "settings";
 const Sidebar = ({
   activeTab,
   setActiveTab,
+  onLogout,
 }: {
   activeTab: ToolTab;
   setActiveTab: (t: ToolTab) => void;
+  onLogout: () => void;
 }) => {
   const NavItem = ({
     id,
@@ -94,13 +118,13 @@ const Sidebar = ({
       </div>
 
       <div className="mt-auto p-6 border-t border-slate-200">
-        <Link
-          href="/"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium text-sm">Sign Out</span>
-        </Link>
+        </button>
       </div>
     </aside>
   );
@@ -395,44 +419,66 @@ const ProfileOverview = () => {
 
 // --- MAIN PAGE LAYOUT ---
 export default function DashboardPage() {
+  const { user, logout, loading } = useAuth(); // Hook into the mocked auth context
   const [activeTab, setActiveTab] = useState<ToolTab>("profile");
 
-  // Title mapping
-  const titles = {
-    profile: "Welcome back, Alex.",
-    "visual-notes": "Visual Notes Generator",
-    edulens: "EduLens Translator",
-    settings: "Account Settings",
+  // Show a simple loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  // Dynamic Title Logic
+  const getHeaderTitle = () => {
+    if (activeTab === "profile") {
+      // If user exists, show their email or name, otherwise fallback
+      const identifier = user?.displayName || user?.email || "User";
+      return `Welcome back, ${identifier}.`;
+    }
+    const titles = {
+      "visual-notes": "Visual Notes Generator",
+      edulens: "EduLens Translator",
+      settings: "Account Settings",
+    };
+    return titles[activeTab] || "Dashboard";
   };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans selection:bg-indigo-100">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onLogout={logout} 
+      />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
         <header className="h-20 border-b border-slate-200 bg-white/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-10">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-            {titles[activeTab]}
+            {getHeaderTitle()}
           </h1>
-          <Link
+          <a
             href="/create"
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-200"
           >
             <Plus className="w-4 h-4" />
             <span>Create New</span>
-          </Link>
+          </a>
           <div className="flex items-center gap-4">
             <div className="hidden md:block text-right">
               <div className="text-sm font-bold text-slate-900">
-                Alex Student
+                {user?.displayName || user?.email || "Guest User"}
               </div>
               <div className="text-xs text-slate-500">Free Plan</div>
             </div>
             <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden">
               <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
+                src={user?.photoURL || "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"}
                 alt="Avatar"
+                className="w-full h-full object-cover"
               />
             </div>
           </div>
