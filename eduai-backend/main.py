@@ -2,15 +2,25 @@ import os
 import io
 import logging
 import time
-from typing import Optional
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from typing import Optional, List
+from datetime import date, datetime, timedelta, timezone
+
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Depends, status, Security
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from PIL import Image
 from google.genai import types
 from google import genai
+
+# --- FIREBASE ADMIN IMPORTS ---
+import firebase_admin
+from firebase_admin import auth, credentials
+
+# --- DATABASE IMPORTS ---
+from sqlmodel import SQLModel, Field, Relationship, Session, create_engine, select
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -23,17 +33,33 @@ logger = logging.getLogger("backend")
 # Load environment variables
 load_dotenv()
 
-# Configure Gemini
+# --- FIREBASE ADMIN INITIALIZATION ---
+try:
+    if os.path.exists("serviceAccountKey.json"):
+        cred = credentials.Certificate("serviceAccountKey.json")
+        firebase_admin.initialize_app(cred)
+        logger.info("Firebase Admin initialized with serviceAccountKey.json")
+    else:
+        logger.warning("serviceAccountKey.json not found. Auth verification will fail unless mocked.")
+except ValueError:
+    pass # App already initialized
+
+# Configure Gemini (API key is loaded from .env)
 GENAI_API_KEY = os.getenv("GOOGLE_API_KEY")
-if not GENAI_API_KEY:
-    logger.critical("GOOGLE_API_KEY not found in .env file")
-    raise ValueError("GOOGLE_API_KEY not found in .env file")
-
+MODEL_ID = "gemini-2.5-flash"
 PRO_MODEL_ID = "gemini-3-pro-image-preview"
-# PRO_MODEL_ID = "gemini-2.5-flash"
 
-logger.info(f"Initializing Gemini Client with model: {PRO_MODEL_ID}")
-client = genai.Client(api_key=GENAI_API_KEY)
+
+# --- DATABASE CONFIGURATION ---
+DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./database.db"
+engine = create_engine(DATABASE_URL, echo=False)
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+def get_session():
+    with Session(engine) as session:
+        yield session
 
 app = FastAPI()
 
@@ -46,108 +72,174 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Data Models ---
+# --- DATABASE MODELS ---
+
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    firebase_uid: str = Field(index=True, unique=True, nullable=False)
+    email: str = Field(index=True)
+    
+    tokens_remaining: int = Field(default=5, nullable=False)
+    streak_count: int = Field(default=0, nullable=False)
+    last_activity_date: Optional[date] = Field(default=None, nullable=True)
+
+    images: List["ImageGeneration"] = Relationship(back_populates="user")
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ImageGeneration(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    image_url: str = Field(nullable=False)
+    prompt: str = Field(nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    user_id: int = Field(foreign_key="user.id")
+    user: Optional[User] = Relationship(back_populates="images")
+
+# --- SCHEMAS ---
+
+class UserProfileResponse(BaseModel):
+    uid: str
+    email: str
+    tokens_remaining: int
+    streak_count: int
+
 class TextRequest(BaseModel):
     text: str
 
-# --- Helper Function ---
-def get_image_bytes(file: UploadFile) -> bytes:
-    return file.file.read()
+# --- AUTH DEPENDENCY ---
+security = HTTPBearer()
 
-# --- Middleware for Request Timing ---
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    logger.info(f"Path: {request.url.path} | Method: {request.method} | Status: {response.status_code} | Time: {process_time:.2f}s")
-    return response
+async def get_current_user(
+    creds: HTTPAuthorizationCredentials = Security(security),
+    session: Session = Depends(get_session)
+) -> User:
+    """
+    Verifies the Firebase ID Token and returns the DB User.
+    Creates the user in DB if they don't exist (Upsert logic).
+    """
+    token = creds.credentials
+    try:
+        # 1. Verify token with Firebase Admin SDK
+        decoded_token = auth.verify_id_token(token)
+        uid = decoded_token['uid']
+        email = decoded_token.get('email', 'no-email@provided.com')
+        
+    except Exception as e:
+        logger.error(f"Authentication failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-# --- Routes ---
+    # 2. Check DB
+    statement = select(User).where(User.firebase_uid == uid)
+    user = session.exec(statement).first()
+    
+    # 3. Create if new
+    if not user:
+        logger.info(f"Creating new user in DB: {email}")
+        user = User(firebase_uid=uid, email=email)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        
+    return user
+
+# --- STARTUP ---
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+    global client
+    if GENAI_API_KEY:
+        client = genai.Client(api_key=GENAI_API_KEY)
+        logger.info("Gemini Client initialized.")
+
+# --- ROUTES ---
 
 @app.get("/")
 def health_check():
-    logger.info("Health check requested.")
-    return {"status": "active", "model": PRO_MODEL_ID}
+    return {"status": "active"}
+
+# [NEW] Endpoint to fetch real user data on login
+@app.get("/users/me", response_model=UserProfileResponse)
+def read_users_me(current_user: User = Depends(get_current_user)):
+    """Returns the authenticated user's profile and credits."""
+    return {
+        "uid": current_user.firebase_uid,
+        "email": current_user.email,
+        "tokens_remaining": current_user.tokens_remaining,
+        "streak_count": current_user.streak_count
+    }
 
 @app.post("/api/visual-notes")
-async def generate_visual_notes(request: TextRequest):
+async def generate_visual_notes(
+    request: TextRequest, 
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
     """
-    1. Analyzes the user's transcript.
-    2. Generates an illustrative diagram.
-    3. Returns the image bytes so the frontend can render it directly.
+    Analyzes text, generates an image, deducts a token, and returns the image.
     """
-    logger.info(f"Received visual notes request. Text length: {len(request.text)} characters.")
+    if current_user.tokens_remaining <= 0:
+         raise HTTPException(status_code=402, detail="Insufficient tokens")
+
+    # Log token deduction attempt
+    logger.info(f"User {current_user.email} attempting generation. Tokens before: {current_user.tokens_remaining}")
     
     try:
-        prompt = f"""
-        Analyze the following transcript and create an image that maps all the key ideas together.
-        Transcript: {request.text}
-        """
-
-        logger.info(f"Sending request to Gemini model ({PRO_MODEL_ID})...")
+        # 1. Setup Prompt
+        prompt = f"Analyze the following transcript and create an image that maps all the key ideas together. Transcript: {request.text}"
         
+        # 2. Call Gemini
         response = client.models.generate_content(
             model=PRO_MODEL_ID,
             contents=[prompt],
         )
-
-        logger.info("Gemini response received. Processing parts...")
-
-        for part in response.parts:
-            if part.text is not None:
-                logger.info(f"Model generated text (logging first 100 chars): {part.text[:100]}...")
-            elif part.inline_data is not None:
-                logger.info("Model generated inline image data.")
-                
-                # Get raw bytes directly from inline_data
-                image_bytes = part.inline_data.data
-                
-                # Save to disk for debugging (optional)
-                try:
-                    os.makedirs("images", exist_ok=True) # Ensure directory exists
-                    save_path = "images/generated_image.png"
-                    with open(save_path, "wb") as f:
-                        f.write(image_bytes)
-                    logger.info(f"Debug image saved to {save_path}")
-                except Exception as e:
-                    logger.warning(f"Error saving to disk: {e}")
-                
-                # Return raw bytes directly to frontend
-                logger.info("Streaming image response to client.")
-                return StreamingResponse(io.BytesIO(image_bytes), media_type="image/png")
         
-        # If no image was found in the response
-        logger.error("No image found in Gemini response parts.")
-        raise HTTPException(
-            status_code=500,
-            detail="No image was generated in the response"
-        )
+        # 3. Extract Image and Deduct Token
+        for part in response.parts:
+            if part.inline_data:
+                 # Deduct token immediately upon successful generation
+                 current_user.tokens_remaining -= 1
+                 session.add(current_user)
+                 session.commit()
+                 session.refresh(current_user)
+                 
+                 logger.info(f"Generation successful. Tokens remaining: {current_user.tokens_remaining}")
+                 return StreamingResponse(io.BytesIO(part.inline_data.data), media_type="image/png")
+        
+        # If no image found, raise error
+        raise HTTPException(status_code=500, detail="No image generated by the AI model.")
 
     except HTTPException:
         raise
-
     except Exception as e:
         logger.error(f"Unexpected error in generate_visual_notes: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        # In a robust system, you might implement a refund logic here if the deduction was optimistic
+        raise HTTPException(status_code=500, detail=f"Failed to process request: {str(e)}")
+
 
 @app.post("/api/visual-translation")
 async def generate_visual_translation(
     file: UploadFile = File(...), 
-    target_lang: str = Form(...)
+    target_lang: str = Form(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
 ):
     """
-    1. Receives an image and a target language.
-    2. Uses Gemini to regenerate the image with translated text.
-    3. Returns the image bytes to the frontend.
+    Receives an image, translates the text, deducts a token, and returns the translated image.
     """
-    logger.info(f"Received visual translation request. Target Language: {target_lang}. Filename: {file.filename}")
+    if current_user.tokens_remaining <= 0:
+         raise HTTPException(status_code=402, detail="Insufficient tokens")
+
+    logger.info(f"User {current_user.email} attempting translation to {target_lang}.")
 
     try:
         # 1. Read and Process the Input Image
         file_bytes = await file.read()
         input_image = Image.open(io.BytesIO(file_bytes))
-        logger.info(f"Image loaded successfully. Size: {input_image.size}, Format: {input_image.format}")
 
         # 2. Construct the Prompt
         prompt = f"""
@@ -158,9 +250,7 @@ async def generate_visual_translation(
         Maintain the original layout and style perfectly.
         """
 
-        # 3. Call the API using the new syntax
-        logger.info(f"Sending image + prompt to Gemini model ({PRO_MODEL_ID})...")
-        
+        # 3. Call the API
         response = client.models.generate_content(
             model=PRO_MODEL_ID,
             contents=[prompt, input_image],
@@ -170,51 +260,44 @@ async def generate_visual_translation(
             )
         )
         
-        logger.info("Gemini response received. Processing parts...")
-
-        # 4. Iterate through parts to find the image
+        # 4. Extract Image and Deduct Token
         if response.candidates and response.candidates[0].content.parts:
             for part in response.candidates[0].content.parts:
                 
-                # Check for text (logging it might explain why image wasn't generated)
-                if part.text:
-                    logger.info(f"Gemini returned text: {part.text[:200]}...")
-
-                # Prefer raw inline data bytes if available
                 if part.inline_data and part.inline_data.data:
-                    logger.info("Found inline_data image in response.")
-                    image_bytes = part.inline_data.data
-                    
-                    # Optional: persist to disk for debugging
-                    try:
-                        os.makedirs("images", exist_ok=True)
-                        save_path = "images/visual_translation_output.png"
-                        with open(save_path, "wb") as f:
-                            f.write(image_bytes)
-                        logger.info(f"Debug image saved to {save_path}")
-                    except Exception as disk_error:
-                        logger.warning(f"Failed to write debug image: {disk_error}")
+                    # Deduct token upon successful generation
+                    current_user.tokens_remaining -= 1
+                    session.add(current_user)
+                    session.commit()
+                    session.refresh(current_user)
+                    logger.info(f"Translation successful. Tokens remaining: {current_user.tokens_remaining}")
                     
                     return StreamingResponse(
-                        io.BytesIO(image_bytes),
+                        io.BytesIO(part.inline_data.data),
                         media_type=part.inline_data.mime_type or "image/png",
                     )
-                
-                # Fallback: attempt to convert helper image to bytes
-                if image := part.as_image():
-                    logger.info("Found generated image using .as_image() helper.")
-                    buffer = io.BytesIO()
-                    image.save(buffer, "PNG")
-                    buffer.seek(0)
-                    return StreamingResponse(buffer, media_type="image/png")
 
         # If loop finishes without finding an image
-        logger.error("Model generated response but no valid image part was found.")
-        raise HTTPException(status_code=500, detail="Model generated text but no image.")
+        raise HTTPException(status_code=500, detail="Model generated text but no image was provided.")
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error in generate_visual_translation: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to process request: {str(e)}")
+
+@app.post("/test/set-tokens/{new_tokens:int}")
+def set_tokens_for_test(
+    new_tokens: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user) # Ensures you are modifying your own user
+):
+    """Temporarily sets the current user's tokens for testing."""
+    current_user.tokens_remaining = new_tokens
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return {"message": f"Tokens set to {new_tokens}", "tokens_remaining": current_user.tokens_remaining}
 
 if __name__ == "__main__":
     import uvicorn

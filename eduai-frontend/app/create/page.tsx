@@ -16,6 +16,7 @@ import {
   FileText,
   Download
 } from 'lucide-react';
+import { useAuth } from "@/context/authContext";
 
 import ReactMarkdown from 'react-markdown';
 
@@ -119,6 +120,8 @@ const TextToImageTool = () => {
     const [resultUrl, setResultUrl] = useState<string | null>(null);
     const [text, setText] = useState('');
     const [error, setError] = useState<string | null>(null);
+
+    const { user } = useAuth();
   
     // Clean up object URL to prevent memory leaks when component unmounts
     React.useEffect(() => {
@@ -129,9 +132,16 @@ const TextToImageTool = () => {
   
     const handleGenerate = async () => {
       if (!text) return;
+
+      if (!user) {
+        setError("You must be logged in to generate notes.");
+        return;
+      }
       
       setLoading(true);
       setError(null);
+
+      
       
       // Clear previous result
       if (resultUrl) {
@@ -140,10 +150,14 @@ const TextToImageTool = () => {
       }
   
       try {
+
+        const token = await user.getIdToken();
+
         const response = await fetch('/api/visual-notes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({ text }),
         });

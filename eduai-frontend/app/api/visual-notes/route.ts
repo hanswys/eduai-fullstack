@@ -7,6 +7,13 @@ export async function POST(request: Request) {
   try {
     const { text } = await request.json().catch(() => ({}));
 
+    // 1. EXTRACT THE TOKEN FROM THE INCOMING REQUEST
+    const authHeader = request.headers.get('authorization');
+
+    if (!authHeader) {
+      return NextResponse.json({ detail: 'Authentication required' }, { status: 401 });
+    }
+
     if (typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ detail: 'Text is required' }, { status: 400 });
     }
@@ -18,10 +25,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // 2. FORWARD THE TOKEN TO YOUR PYTHON BACKEND
     const backendResponse = await fetch(`${BACKEND_URL}/api/visual-notes`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': authHeader, // <--- THIS WAS MISSING
       },
       body: JSON.stringify({ text }),
     });
@@ -33,13 +42,13 @@ export async function POST(request: Request) {
           ? errorPayload.detail
           : 'Failed to generate visual notes';
 
+      // Pass the actual status code from backend (e.g., 402 for no tokens)
       return NextResponse.json({ detail }, { status: backendResponse.status });
     }
 
     const contentType =
       backendResponse.headers.get('content-type') || 'application/octet-stream';
 
-    // Convert the streamed response into a Buffer so Next.js can return it downstream.
     const buffer = Buffer.from(await backendResponse.arrayBuffer());
 
     return new NextResponse(buffer, {
@@ -60,4 +69,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
