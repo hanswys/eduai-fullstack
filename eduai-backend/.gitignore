@@ -23,4 +23,6 @@ htmlcov/
 .vscode/
 .idea/
 
+serviceAccountKey.json
+
 images/
