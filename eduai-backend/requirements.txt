@@ -7,3 +7,4 @@ pillow
 httpx
 sqlmodel
 firebase-admin
+google-cloud-storage
