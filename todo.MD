@@ -15,7 +15,7 @@ Onboarding smoother -> try free version (7 tokens a week) ?
 [ ] Pages Processed Match with Profile
 [x] Recent Activity Match with Photos Created 
 [/] Allow downloading from Recent Activity (Opens new tab to save image)
-[ ] Page where user can view all generated images 
+[x] Page where user can view all generated images 
 [ ] Sign In only having Google (Reduce Ambuigity)
 
 
