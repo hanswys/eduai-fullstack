@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 
 // --- TYPES ---
-// Updated to include 'gallery'
 type ToolTab = "profile" | "gallery" | "visual-notes" | "edulens" | "settings";
 
 interface ActivityItem {
@@ -106,7 +105,6 @@ const Sidebar = ({
         <div className="space-y-1">
           <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Workspace</p>
           <NavItem id="profile" icon={LayoutDashboard} label="Overview" />
-          {/* NEW: Gallery Tab */}
           <NavItem id="gallery" icon={Grid} label="Gallery" />
         </div>
         <div className="mt-8 space-y-1">
@@ -125,7 +123,15 @@ const Sidebar = ({
 };
 
 // Feature: Profile / Overview
-const ProfileOverview = ({ userData, loading }: { userData: UserData | null, loading: boolean }) => {
+const ProfileOverview = ({ 
+  userData, 
+  loading, 
+  setActiveTab 
+}: { 
+  userData: UserData | null, 
+  loading: boolean, 
+  setActiveTab: (t: ToolTab) => void 
+}) => {
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600" /></div>
   }
@@ -160,11 +166,16 @@ const ProfileOverview = ({ userData, loading }: { userData: UserData | null, loa
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold text-slate-800">Recent Activity</h3>
-          {/* Note: In a real app, this View All could link to setActiveTab('gallery') */}
-          <button className="text-sm text-indigo-600 font-medium hover:underline">View All</button>
+          {/* LINKED TO GALLERY TAB */}
+          <button 
+            onClick={() => setActiveTab('gallery')} 
+            className="text-sm text-indigo-600 font-medium hover:underline"
+          >
+            View All
+          </button>
         </div>
         <div className="space-y-4">
-          {userData?.recentActivity?.map((item) => (
+          {userData?.recentActivity?.slice(0, 5).map((item) => ( // Displaying only first 5 items here
             <div key={item.id} className="flex items-center p-4 rounded-2xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100 group">
               
               {/* Thumbnail */}
@@ -200,7 +211,7 @@ const ProfileOverview = ({ userData, loading }: { userData: UserData | null, loa
   );
 };
 
-// NEW FEATURE: Image Gallery
+// Feature: Image Gallery
 const ImageGallery = ({ items, loading }: { items: ActivityItem[] | undefined, loading: boolean }) => {
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600" /></div>;
@@ -309,7 +320,7 @@ export default function DashboardPage() {
       return `Welcome back, ${identifier}.`;
     }
     const titles = {
-      "gallery": "My Gallery", // Title for new tab
+      "gallery": "My Gallery",
       "visual-notes": "Visual Notes Generator",
       edulens: "EduLens Translator",
       settings: "Account Settings",
@@ -338,9 +349,14 @@ export default function DashboardPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-8">
-          {activeTab === "profile" && <ProfileOverview userData={dbUser} loading={dataLoading} />}
+          {activeTab === "profile" && (
+            <ProfileOverview 
+              userData={dbUser} 
+              loading={dataLoading} 
+              setActiveTab={setActiveTab} 
+            />
+          )}
           
-          {/* Render Gallery */}
           {activeTab === "gallery" && (
             <ImageGallery items={dbUser?.recentActivity} loading={dataLoading} />
           )}
