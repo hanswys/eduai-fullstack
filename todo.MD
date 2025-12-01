@@ -13,8 +13,11 @@ Setup DB for users -> tracking tokens, tool history (Store images) !
 Onboarding smoother -> try free version (7 tokens a week) ?
 [/] Feedback (UI Created)
 [ ] Pages Processed Match with Profile
-[ ] Recent Activity Match with Photos Created 
-[ ] 
+[x] Recent Activity Match with Photos Created 
+[/] Allow downloading from Recent Activity (Opens new tab to save image)
+[ ] Page where user can view all generated images 
+[ ] Sign In only having Google (Reduce Ambuigity)
+
 
 Review:
 [x] Tools work with gemini llm

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useAuth } from "@/context/authContext"; // Uses your REAL auth context
+import { useAuth } from "@/context/authContext";
 import {
   BookOpen,
   LayoutDashboard,
@@ -12,15 +12,17 @@ import {
   Zap,
   Loader2,
   ChevronRight,
-  MoreHorizontal,
+  Download,
   Plus,
+  Grid, // NEW IMPORT
 } from "lucide-react";
 
 // --- TYPES ---
-type ToolTab = "profile" | "visual-notes" | "edulens" | "settings";
+// Updated to include 'gallery'
+type ToolTab = "profile" | "gallery" | "visual-notes" | "edulens" | "settings";
 
 interface ActivityItem {
-  id: string; // Firestore IDs are strings
+  id: string;
   title: string;
   type: "visual-notes" | "edulens";
   time: string;
@@ -32,6 +34,39 @@ interface UserData {
   streak_count: number;
   recentActivity: ActivityItem[];
 }
+
+// --- SHARED UTILS ---
+const handleDownload = async (e: React.MouseEvent, url: string, title: string) => {
+  e.stopPropagation();
+  e.preventDefault();
+
+  try {
+    const response = await fetch(url, {
+      mode: 'cors',
+    });
+
+    if (!response.ok) throw new Error("Network response was not ok");
+
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    link.download = `edu-ai-${safeTitle}.png`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    window.URL.revokeObjectURL(blobUrl);
+
+  } catch (err) {
+    console.error("Download failed:", err);
+    alert("Could not download image. Opening in new tab instead.");
+    window.open(url, '_blank');
+  }
+};
 
 // --- COMPONENTS ---
 
@@ -71,6 +106,8 @@ const Sidebar = ({
         <div className="space-y-1">
           <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Workspace</p>
           <NavItem id="profile" icon={LayoutDashboard} label="Overview" />
+          {/* NEW: Gallery Tab */}
+          <NavItem id="gallery" icon={Grid} label="Gallery" />
         </div>
         <div className="mt-8 space-y-1">
           <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Account</p>
@@ -87,9 +124,8 @@ const Sidebar = ({
   );
 };
 
-// 4. Feature: Profile / Overview
+// Feature: Profile / Overview
 const ProfileOverview = ({ userData, loading }: { userData: UserData | null, loading: boolean }) => {
-  
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600" /></div>
   }
@@ -124,28 +160,104 @@ const ProfileOverview = ({ userData, loading }: { userData: UserData | null, loa
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold text-slate-800">Recent Activity</h3>
+          {/* Note: In a real app, this View All could link to setActiveTab('gallery') */}
           <button className="text-sm text-indigo-600 font-medium hover:underline">View All</button>
         </div>
         <div className="space-y-4">
           {userData?.recentActivity?.map((item) => (
-            <div key={item.id} className="flex items-center p-4 rounded-2xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100 group cursor-pointer">
+            <div key={item.id} className="flex items-center p-4 rounded-2xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100 group">
+              
+              {/* Thumbnail */}
               <div className="relative w-16 h-16 mr-4 flex-shrink-0">
                 <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover rounded-xl shadow-sm border border-slate-100" />
                 <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-sm border border-slate-100">
                   {item.type === 'edulens' ? <Camera className="w-3 h-3 text-purple-600" /> : <ImageIcon className="w-3 h-3 text-indigo-600" />}
                 </div>
               </div>
-              <div className="flex-1">
-                <h4 className="font-semibold text-slate-800 group-hover:text-indigo-600 transition truncate max-w-xs">{item.title}</h4>
+              
+              {/* Text Info */}
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-slate-800 group-hover:text-indigo-600 transition truncate pr-4">{item.title}</h4>
                 <p className="text-sm text-slate-500">{item.time} • {item.type === 'edulens' ? "EduLens" : "Visual Notes"}</p>
               </div>
-              <div className="text-slate-300 group-hover:text-indigo-600 transition"><MoreHorizontal /></div>
+
+              {/* Download Button */}
+              <button 
+                onClick={(e) => handleDownload(e, item.imageUrl, item.title)}
+                className="p-3 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                title="Download Image"
+              >
+                <Download className="w-5 h-5" />
+              </button>
             </div>
           ))}
           {(!userData?.recentActivity || userData.recentActivity.length === 0) && (
             <p className="text-slate-400 text-center py-4">No recent activity.</p>
           )}
         </div>
+      </div>
+    </div>
+  );
+};
+
+// NEW FEATURE: Image Gallery
+const ImageGallery = ({ items, loading }: { items: ActivityItem[] | undefined, loading: boolean }) => {
+  if (loading) {
+    return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600" /></div>;
+  }
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 text-center">
+        <div className="bg-slate-100 p-4 rounded-full mb-4">
+          <ImageIcon className="w-8 h-8 text-slate-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-700">No images yet</h3>
+        <p className="text-slate-500 max-w-sm mt-2">Start creating visual notes or using EduLens to populate your gallery.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {items.map((item) => (
+          <div key={item.id} className="group relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col">
+            
+            {/* Image Area */}
+            <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
+              <img 
+                src={item.imageUrl} 
+                alt={item.title} 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+              />
+              {/* Type Badge */}
+              <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-semibold shadow-sm flex items-center gap-1.5 text-slate-700">
+                 {item.type === 'edulens' ? <Camera className="w-3 h-3 text-purple-600" /> : <ImageIcon className="w-3 h-3 text-indigo-600" />}
+                 {item.type === 'edulens' ? "EduLens" : "Notes"}
+              </div>
+
+              {/* Hover Overlay */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                 <button 
+                  onClick={(e) => handleDownload(e, item.imageUrl, item.title)}
+                  className="bg-white text-slate-800 p-2.5 rounded-xl hover:bg-indigo-600 hover:text-white transition-colors transform translate-y-4 group-hover:translate-y-0 duration-200 shadow-lg"
+                  title="Download"
+                 >
+                   <Download className="w-5 h-5" />
+                 </button>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-4 flex-1 flex flex-col justify-between">
+              <div>
+                <h4 className="font-semibold text-slate-800 line-clamp-1 mb-1" title={item.title}>{item.title}</h4>
+                <p className="text-xs text-slate-400">{item.time}</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -185,9 +297,8 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, [user]); // Runs when Firebase Auth user loads
+  }, [user]);
 
-  // Initial Auth Loading Check
   if (!user && dataLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>;
   }
@@ -198,6 +309,7 @@ export default function DashboardPage() {
       return `Welcome back, ${identifier}.`;
     }
     const titles = {
+      "gallery": "My Gallery", // Title for new tab
       "visual-notes": "Visual Notes Generator",
       edulens: "EduLens Translator",
       settings: "Account Settings",
@@ -227,6 +339,12 @@ export default function DashboardPage() {
 
         <div className="flex-1 overflow-y-auto p-8">
           {activeTab === "profile" && <ProfileOverview userData={dbUser} loading={dataLoading} />}
+          
+          {/* Render Gallery */}
+          {activeTab === "gallery" && (
+            <ImageGallery items={dbUser?.recentActivity} loading={dataLoading} />
+          )}
+
           {activeTab === "settings" && (
             <div className="flex items-center justify-center h-full text-slate-400">
               <div className="text-center">

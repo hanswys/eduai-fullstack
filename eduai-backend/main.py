@@ -3,6 +3,7 @@ import io
 import logging
 import uuid
 import datetime
+import httpx # NEW IMPORT
 from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Security
@@ -268,6 +269,35 @@ async def generate_visual_translation(
     except Exception as e:
         logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/download")
+async def download_proxy(url: str, filename: str = "download.png"):
+    """
+    Proxies the image request through the backend to bypass CORS 
+    and force a file download.
+    """
+    # Security: simple check to ensure we only proxy firebase images
+    if "firebasestorage.googleapis.com" not in url and "appspot.com" not in url:
+        raise HTTPException(status_code=400, detail="Invalid image source")
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url)
+            if response.status_code != 200:
+                raise HTTPException(status_code=404, detail="Image not found")
+            
+            # Create a stream from the content
+            return StreamingResponse(
+                io.BytesIO(response.content),
+                media_type="image/png",
+                headers={
+                    # This header tells the browser: "Don't open this, download it!"
+                    "Content-Disposition": f'attachment; filename="{filename}.png"'
+                }
+            )
+        except Exception as e:
+            logger.error(f"Download proxy error: {e}")
+            raise HTTPException(status_code=500, detail="Failed to fetch image")
 
 if __name__ == "__main__":
     import uvicorn
