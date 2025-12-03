@@ -3,7 +3,7 @@ import io
 import logging
 import uuid
 import datetime
-import httpx # NEW IMPORT
+import httpx 
 from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Security
@@ -26,24 +26,29 @@ logger = logging.getLogger("backend")
 
 load_dotenv()
 
-# --- FIREBASE INITIALIZATION ---
-# We initialize it once. This handles Auth, Firestore, and Storage.
-try:
+# --- FIREBASE INITIALIZATION (FIXED) ---
+# We check if an app is already initialized to prevent hot-reload errors.
+if not firebase_admin._apps:
+    storage_bucket = os.getenv("FIREBASE_STORAGE_BUCKET")
+    
     if os.path.exists("serviceAccountKey.json"):
+        # Option A: Local Development using the JSON file
         cred = credentials.Certificate("serviceAccountKey.json")
-        # Initialize with storageBucket for easier file access
         firebase_admin.initialize_app(cred, {
-            'storageBucket': os.getenv("FIREBASE_STORAGE_BUCKET") # e.g. 'project-id.appspot.com'
+            'storageBucket': storage_bucket
         })
-        logger.info("Firebase Admin initialized.")
+        logger.info("Firebase Admin initialized using serviceAccountKey.json.")
     else:
-        logger.warning("serviceAccountKey.json not found!")
-except ValueError:
-    pass 
+        # Option B: Production (Cloud Run, Vercel, etc.) using Environment Variables / Default Credentials
+        # This prevents the "Default app does not exist" crash if the file is missing
+        logger.warning("serviceAccountKey.json not found! Attempting to use Default Credentials.")
+        firebase_admin.initialize_app(options={
+            'storageBucket': storage_bucket
+        })
 
-# Initialize Clients
+# Initialize Clients (Now safe to call because we ensured initialize_app ran above)
 db = firestore.client()
-bucket = storage.bucket() # Uses the bucket defined in initialize_app
+bucket = storage.bucket() 
 
 # --- GEMINI SETUP ---
 GENAI_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -63,7 +68,7 @@ app.add_middleware(
 # --- SCHEMAS ---
 class FeedbackRequest(BaseModel):
     message: str
-    path: Optional[str] = "Unknown" # Helpful to know which page they were on
+    path: Optional[str] = "Unknown" 
 
 class TextRequest(BaseModel):
     text: str
@@ -71,7 +76,7 @@ class TextRequest(BaseModel):
 class ActivityItem(BaseModel):
     id: str
     title: str
-    type: str # 'visual-notes' or 'edulens'
+    type: str 
     time: str
     imageUrl: str
 
@@ -91,17 +96,15 @@ def upload_to_firebase(image_data: bytes, folder: str) -> str:
     
     blob.upload_from_string(image_data, content_type='image/png')
     
-    # Note: Ensure your Firebase Storage Rules allow public read for this to work 
-    # OR use signed URLs. For this demo, we make the specific file public.
+    # Note: Ensure your Firebase Storage Rules allow public read 
     blob.make_public()
     return blob.public_url
 
 def format_time_ago(timestamp: datetime.datetime) -> str:
     """Converts Firestore timestamp to '2 hours ago'"""
     if not timestamp: return "Unknown"
-    # Ensure timezone awareness compatibility
     now = datetime.datetime.now(datetime.timezone.utc)
-    # Firestore returns datetime with timezone, ensure we match
+    
     if timestamp.tzinfo is None:
         timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
         
@@ -158,10 +161,7 @@ async def get_current_user_doc(creds: HTTPAuthorizationCredentials = Security(se
 def read_users_me(user_data: Dict = Depends(get_current_user_doc)):
     uid = user_data['uid']
     
-    # 1. Fetch History Subcollection
-    # Structure: users/{uid}/history/{activity_id}
     history_ref = db.collection('users').document(uid).collection('history')
-    # Order by created_at descending, limit 5
     docs = history_ref.order_by('created_at', direction=firestore.Query.DESCENDING).limit(5).stream()
     
     recent_activity = []
@@ -200,10 +200,8 @@ async def generate_visual_notes(
         
         for part in response.parts:
             if part.inline_data:
-                # 1. Upload to Storage
                 image_url = upload_to_firebase(part.inline_data.data, folder="visual-notes")
 
-                # 2. Add to History (Subcollection)
                 history_data = {
                     "title": request.text[:30] + "...",
                     "type": "visual-notes",
@@ -212,8 +210,6 @@ async def generate_visual_notes(
                 }
                 db.collection('users').document(uid).collection('history').add(history_data)
 
-                # 3. Deduct Token
-                # Note: In production, use a Firestore Transaction for safety
                 user_ref = db.collection('users').document(uid)
                 user_ref.update({"tokens_remaining": firestore.Increment(-1)})
 
@@ -250,10 +246,8 @@ async def generate_visual_translation(
         if response.candidates and response.candidates[0].content.parts:
             for part in response.candidates[0].content.parts:
                 if part.inline_data:
-                    # 1. Upload
                     image_url = upload_to_firebase(part.inline_data.data, folder="translations")
 
-                    # 2. History
                     history_data = {
                         "title": f"Translation to {target_lang}",
                         "type": "edulens",
@@ -262,7 +256,6 @@ async def generate_visual_translation(
                     }
                     db.collection('users').document(uid).collection('history').add(history_data)
 
-                    # 3. Deduct
                     user_ref = db.collection('users').document(uid)
                     user_ref.update({"tokens_remaining": firestore.Increment(-1)})
                     
@@ -275,11 +268,6 @@ async def generate_visual_translation(
 
 @app.get("/api/download")
 async def download_proxy(url: str, filename: str = "download.png"):
-    """
-    Proxies the image request through the backend to bypass CORS 
-    and force a file download.
-    """
-    # Security: simple check to ensure we only proxy firebase images
     if "firebasestorage.googleapis.com" not in url and "appspot.com" not in url:
         raise HTTPException(status_code=400, detail="Invalid image source")
 
@@ -289,12 +277,10 @@ async def download_proxy(url: str, filename: str = "download.png"):
             if response.status_code != 200:
                 raise HTTPException(status_code=404, detail="Image not found")
             
-            # Create a stream from the content
             return StreamingResponse(
                 io.BytesIO(response.content),
                 media_type="image/png",
                 headers={
-                    # This header tells the browser: "Don't open this, download it!"
                     "Content-Disposition": f'attachment; filename="{filename}.png"'
                 }
             )
@@ -307,10 +293,6 @@ async def submit_feedback(
     feedback: FeedbackRequest,
     user_data: Dict = Depends(get_current_user_doc)
 ):
-    """
-    Receives feedback from frontend, creates a GitHub Issue.
-    """
-    # 1. Load Secrets
     pat = os.getenv("GITHUB_PAT")
     owner = os.getenv("GITHUB_REPO_OWNER")
     repo = os.getenv("GITHUB_REPO_NAME")
@@ -319,7 +301,6 @@ async def submit_feedback(
         logger.error("GitHub configuration missing in .env")
         raise HTTPException(status_code=500, detail="Server configuration error")
 
-    # 2. Format the Issue Body
     user_email = user_data.get('email', 'Unknown')
     user_uid = user_data.get('uid', 'Unknown')
     
@@ -335,7 +316,6 @@ async def submit_feedback(
 {feedback.message}
     """
 
-    # 3. Send to GitHub
     url = f"https://api.github.com/repos/{owner}/{repo}/issues"
     headers = {
         "Authorization": f"token {pat}",
@@ -345,7 +325,7 @@ async def submit_feedback(
     payload = {
         "title": issue_title,
         "body": issue_body,
-        "labels": ["user-feedback"] # Ensure this label exists in your repo or remove this line
+        "labels": ["user-feedback"] 
     }
 
     async with httpx.AsyncClient() as client:

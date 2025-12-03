@@ -1,4 +1,3 @@
-Snap - ducate
 edufy *
 
 Externals:
@@ -21,7 +20,9 @@ Onboarding smoother -> try free version (7 tokens a week) ?
 [/] Tokens refresh (Currently manual adding on firebase) 
 [ ] Deploy backend server (double check all functions work correctly)
 [x] Feedback function 
-[ ] Pricing Tier (Pay for more tokens) (Tierlist)
+[x] Pricing Tier (Pay for more tokens) (Tierlist)
+[ ] Payment Feature -> Grant extra tokens on tier 
+
 
 
 
