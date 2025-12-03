@@ -55,7 +55,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-3">
             <a href="/login" className="hidden md:block text-sm font-medium text-slate-600 hover:text-slate-900">Sign in</a>
-            <a href="/signup" className="bg-slate-900 text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-slate-800 transition shadow-lg shadow-slate-900/20">
+            <a href="/login" className="bg-slate-900 text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-slate-800 transition shadow-lg shadow-slate-900/20">
               Try for free
             </a>
             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-1 text-slate-600">
@@ -96,7 +96,7 @@ export default function LandingPage() {
           </p>
 
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-             <a href="/signup" className="w-full sm:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition shadow-xl shadow-slate-900/20 transform hover:-translate-y-1 flex items-center justify-center gap-2">
+             <a href="/login" className="w-full sm:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition shadow-xl shadow-slate-900/20 transform hover:-translate-y-1 flex items-center justify-center gap-2">
                 Try for free <ArrowRight className="w-4 h-4" />
              </a>
              <a href="#features" className="w-full sm:w-auto px-8 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 transition flex items-center justify-center">
