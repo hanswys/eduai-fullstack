@@ -20,7 +20,7 @@ Onboarding smoother -> try free version (7 tokens a week) ?
 [x] Check if user is not allowed to use api after token reaches 0 
 [/] Tokens refresh (Currently manual adding on firebase) 
 [ ] Deploy backend server (double check all functions work correctly)
-[ ] Feedback function 
+[x] Feedback function 
 [ ] Pricing Tier (Pay for more tokens) (Tierlist)
 
 

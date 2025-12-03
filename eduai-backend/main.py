@@ -61,6 +61,9 @@ app.add_middleware(
 )
 
 # --- SCHEMAS ---
+class FeedbackRequest(BaseModel):
+    message: str
+    path: Optional[str] = "Unknown" # Helpful to know which page they were on
 
 class TextRequest(BaseModel):
     text: str
@@ -299,6 +302,61 @@ async def download_proxy(url: str, filename: str = "download.png"):
             logger.error(f"Download proxy error: {e}")
             raise HTTPException(status_code=500, detail="Failed to fetch image")
 
+@app.post("/api/feedback")
+async def submit_feedback(
+    feedback: FeedbackRequest,
+    user_data: Dict = Depends(get_current_user_doc)
+):
+    """
+    Receives feedback from frontend, creates a GitHub Issue.
+    """
+    # 1. Load Secrets
+    pat = os.getenv("GITHUB_PAT")
+    owner = os.getenv("GITHUB_REPO_OWNER")
+    repo = os.getenv("GITHUB_REPO_NAME")
+    
+    if not all([pat, owner, repo]):
+        logger.error("GitHub configuration missing in .env")
+        raise HTTPException(status_code=500, detail="Server configuration error")
+
+    # 2. Format the Issue Body
+    user_email = user_data.get('email', 'Unknown')
+    user_uid = user_data.get('uid', 'Unknown')
+    
+    issue_title = f"Feedback from {user_email}"
+    issue_body = f"""
+### User Feedback
+**User:** {user_email} (UID: `{user_uid}`)
+**Page:** `{feedback.path}`
+**Timestamp:** {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+---
+### Message
+{feedback.message}
+    """
+
+    # 3. Send to GitHub
+    url = f"https://api.github.com/repos/{owner}/{repo}/issues"
+    headers = {
+        "Authorization": f"token {pat}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "title": issue_title,
+        "body": issue_body,
+        "labels": ["user-feedback"] # Ensure this label exists in your repo or remove this line
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers=headers)
+
+    if response.status_code != 201:
+        logger.error(f"GitHub API Error: {response.text}")
+        raise HTTPException(status_code=500, detail="Failed to submit feedback to GitHub")
+
+    return {"status": "success", "issue_url": response.json().get("html_url")}
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

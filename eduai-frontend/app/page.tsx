@@ -13,7 +13,9 @@ import {
   Languages,
   Clock,
   FileQuestion,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  Check
 } from 'lucide-react';
 
 // --- DECORATIVE COMPONENTS ---
@@ -51,6 +53,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-500">
             <a href="#problem" className="hover:text-slate-900 transition-colors">The Problem</a>
             <a href="#features" className="hover:text-slate-900 transition-colors">Methodology</a>
+            <a href="#pricing" className="hover:text-slate-900 transition-colors">Tuition</a>
           </div>
 
           <div className="flex items-center gap-3">
@@ -71,6 +74,7 @@ export default function LandingPage() {
           <div className="flex flex-col gap-6 text-2xl font-serif text-slate-900">
             <a href="#problem" onClick={() => setIsMenuOpen(false)}>The Problem</a>
             <a href="#features" onClick={() => setIsMenuOpen(false)}>Methodology</a>
+            <a href="#pricing" onClick={() => setIsMenuOpen(false)}>Pricing</a>
             <a href="/login" onClick={() => setIsMenuOpen(false)}>Sign In</a>
             <a href="/signup" className="text-orange-600" onClick={() => setIsMenuOpen(false)}>Try for free</a>
           </div>
@@ -106,7 +110,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* PROBLEM SECTION (Replaces Waitlist) */}
+      {/* PROBLEM SECTION */}
       <section id="problem" className="py-20 px-4">
          <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
@@ -115,36 +119,33 @@ export default function LandingPage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
-               {/* Pain Point 1 */}
                <div className="p-8 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition duration-300">
                   <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mb-6">
                      <FileQuestion className="w-6 h-6 text-red-500" />
                   </div>
                   <h4 className="text-xl font-bold text-slate-900 mb-3">Information Overload</h4>
                   <p className="text-slate-500 leading-relaxed">
-                     You have 2 hours to digest 50 pages of dense text. Traditional note-taking is too slow to keep up with the volume of information.
+                     You have 2 hours to digest 50 pages of dense text. Traditional note-taking is too slow.
                   </p>
                </div>
 
-               {/* Pain Point 2 */}
                <div className="p-8 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition duration-300">
                   <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center mb-6">
                      <AlertCircle className="w-6 h-6 text-orange-500" />
                   </div>
                   <h4 className="text-xl font-bold text-slate-900 mb-3">Language Barriers</h4>
                   <p className="text-slate-500 leading-relaxed">
-                     Textbooks are often written in complex academic language or foreign tongues, making simple concepts unnecessarily hard to decode.
+                     Textbooks often use complex academic language or foreign tongues, making simple concepts hard to decode.
                   </p>
                </div>
 
-               {/* Pain Point 3 */}
                <div className="p-8 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition duration-300">
                   <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mb-6">
                      <Clock className="w-6 h-6 text-slate-600" />
                   </div>
                   <h4 className="text-xl font-bold text-slate-900 mb-3">Disorganized Chaos</h4>
                   <p className="text-slate-500 leading-relaxed">
-                     Notes scattered across three notebooks and five apps. When exam time comes, you spend more time finding notes than actually studying.
+                     Notes scattered across notebooks and apps. You spend more time finding notes than studying.
                   </p>
                </div>
             </div>
@@ -171,8 +172,6 @@ export default function LandingPage() {
                 Don't just read the lecture. See it. Our engine converts dense audio transcripts into structured, easy-to-study knowledge maps.
               </p>
             </div>
-            
-            {/* Visual Decoration */}
             <div className="absolute right-[-50px] bottom-[-50px] md:right-[-20px] md:bottom-[-20px] w-64 h-64 bg-white rounded-3xl border border-slate-200 shadow-xl transform rotate-[-10deg] group-hover:rotate-[-5deg] group-hover:translate-y-[-10px] transition duration-500 flex items-center justify-center p-6">
                <div className="w-full h-full border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center">
                   <BookOpen className="text-slate-200 w-20 h-20" />
@@ -205,7 +204,119 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
 
+      {/* PRICING SECTION */}
+      <section id="pricing" className="py-24 px-4 sm:px-6 border-t border-slate-100">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-serif text-slate-900 mb-4">Simple Tuition</h2>
+            <p className="text-slate-500">Invest in your grades, not hidden fees.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            {/* TIER 1: BASIC */}
+            <div className="relative p-8 bg-white border border-slate-200 rounded-3xl flex flex-col hover:shadow-lg transition-shadow duration-300">
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Basic Free</h3>
+                <p className="text-sm text-slate-500 mt-1">For casual learners</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-serif font-medium text-slate-900">$0</span>
+                <span className="text-slate-400 ml-2">/mo</span>
+              </div>
+              <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
+                <div className="bg-white p-2 rounded-lg shadow-sm">
+                   <Zap className="w-5 h-5 text-orange-500" />
+                </div>
+                <div>
+                   <p className="font-bold text-slate-900">7 Tokens</p>
+                   <p className="text-xs text-slate-500">Replenished weekly</p>
+                </div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {['Basic visual notes', 'Standard processing', '1 Language support', 'Community access'].map((feat, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
+                    <Check className="w-5 h-5 text-slate-300 shrink-0" />
+                    <span>{feat}</span>
+                  </li>
+                ))}
+              </ul>
+              <a href="/login" className="w-full py-3 bg-white border border-slate-200 text-slate-900 font-semibold rounded-xl hover:bg-slate-50 transition text-center">
+                Start Learning
+              </a>
+            </div>
+
+            {/* TIER 2: PRO (Highlighted) */}
+            <div className="relative p-8 bg-slate-900 text-white rounded-[2.5rem] flex flex-col shadow-2xl shadow-slate-900/20 transform md:-translate-y-4">
+              <div className="absolute top-0 right-0 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-[2.5rem]">
+                POPULAR
+              </div>
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-white">Pro</h3>
+                <p className="text-sm text-slate-400 mt-1">For serious students</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-serif font-medium text-white">$12</span>
+                <span className="text-slate-500 ml-2">/mo</span>
+              </div>
+              <div className="mb-8 p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-3">
+                <div className="bg-orange-500 p-2 rounded-lg shadow-sm">
+                   <Zap className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                   <p className="font-bold text-white">14 Tokens</p>
+                   <p className="text-xs text-slate-400">Replenished weekly</p>
+                </div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {['Faster processing speed', 'Unlimited storage', 'Export to PDF/Notion', 'Priority Support'].map((feat, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-slate-300">
+                    <CheckCircle2 className="w-5 h-5 text-orange-400 shrink-0" />
+                    <span>{feat}</span>
+                  </li>
+                ))}
+              </ul>
+              <a href="/signup" className="w-full py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition text-center shadow-lg shadow-orange-500/25">
+                Get Pro Access
+              </a>
+            </div>
+
+            {/* TIER 3: PRO PLUS */}
+            <div className="relative p-8 bg-white border border-slate-200 rounded-3xl flex flex-col hover:shadow-lg transition-shadow duration-300">
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-slate-900">Pro +</h3>
+                <p className="text-sm text-slate-500 mt-1">For the obsessionals</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-serif font-medium text-slate-900">$20</span>
+                <span className="text-slate-400 ml-2">/mo</span>
+              </div>
+              <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
+                <div className="bg-white p-2 rounded-lg shadow-sm">
+                   <Zap className="w-5 h-5 text-slate-900" />
+                </div>
+                <div>
+                   <p className="font-bold text-slate-900">20 Tokens</p>
+                   <p className="text-xs text-slate-500">Replenished weekly</p>
+                </div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {['Instant processing', 'Advanced AI Models (GPT-4)', '24/7 Priority support', 'Early access features'].map((feat, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
+                    <Check className="w-5 h-5 text-slate-900 shrink-0" />
+                    <span>{feat}</span>
+                  </li>
+                ))}
+              </ul>
+              <a href="/signup" className="w-full py-3 bg-white border border-slate-200 text-slate-900 font-semibold rounded-xl hover:bg-slate-50 transition text-center">
+                Go Limitless
+              </a>
+            </div>
+
+          </div>
         </div>
       </section>
 
