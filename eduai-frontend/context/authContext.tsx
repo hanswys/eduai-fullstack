@@ -10,8 +10,9 @@ import {
 import { auth, googleProvider } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
-// Configure this in your .env.local file or default to localhost
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// 2. Remove any trailing slash if it exists to prevent 'http://localhost:8000//users/me'
+const API_URL = BASE_URL.replace(/\/$/, '');
 
 export interface User extends FirebaseUser {
   tokensRemaining: number;
