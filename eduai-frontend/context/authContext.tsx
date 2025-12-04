@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // 2. Remove any trailing slash if it exists to prevent 'http://localhost:8000//users/me'
-const API_URL = BASE_URL.replace(/\/$/, '');
+// const API_URL = BASE_URL.replace(/\/$/, '');
 
 export interface User extends FirebaseUser {
   tokensRemaining: number;
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const token = await firebaseUser.getIdToken();
 
           // 2. FETCH REAL DATA FROM BACKEND
-          const response = await fetch(`${API_URL}/users/me`, {
+          const response = await fetch(`${BASE_URL}/users/me`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,

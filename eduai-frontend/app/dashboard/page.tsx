@@ -321,11 +321,19 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
+      // --- FIX STARTS HERE ---
+      // 1. Get the URL from env, default to localhost for dev, and remove trailing slashes
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const API_URL = BASE_URL.replace(/\/$/, '');
+
       try {
         const token = await user.getIdToken();
-        const res = await fetch('http://localhost:8000/users/me', {
+        
+        // 2. Use the dynamic API_URL
+        const res = await fetch(`${API_URL}/users/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+      // --- FIX ENDS HERE ---
         if (res.ok) {
           const data = await res.json();
           setDbUser(data);
