@@ -1,5 +1,6 @@
 import os
 import io
+import json  # <--- NEW IMPORT
 import logging
 import uuid
 import datetime
@@ -26,27 +27,41 @@ logger = logging.getLogger("backend")
 
 load_dotenv()
 
-# --- FIREBASE INITIALIZATION (FIXED) ---
-# We check if an app is already initialized to prevent hot-reload errors.
+# --- FIREBASE INITIALIZATION ---
 if not firebase_admin._apps:
     storage_bucket = os.getenv("FIREBASE_STORAGE_BUCKET")
+    sa_key_env = os.getenv("FIREBASE_SA_KEY")
     
-    if os.path.exists("serviceAccountKey.json"):
-        # Option A: Local Development using the JSON file
+    # 1. Priority: Load from Environment Variable (Production/Docker)
+    if sa_key_env:
+        try:
+            # Parse the JSON string from .env into a dictionary
+            service_account_info = json.loads(sa_key_env)
+            cred = credentials.Certificate(service_account_info)
+            firebase_admin.initialize_app(cred, {
+                'storageBucket': storage_bucket
+            })
+            logger.info("Firebase Admin initialized from FIREBASE_SA_KEY env var.")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse FIREBASE_SA_KEY: {e}")
+            raise ValueError("Invalid JSON in FIREBASE_SA_KEY environment variable")
+
+    # 2. Fallback: Load from local file (Local Dev)
+    elif os.path.exists("serviceAccountKey.json"):
         cred = credentials.Certificate("serviceAccountKey.json")
         firebase_admin.initialize_app(cred, {
             'storageBucket': storage_bucket
         })
-        logger.info("Firebase Admin initialized using serviceAccountKey.json.")
+        logger.info("Firebase Admin initialized using local serviceAccountKey.json.")
+    
+    # 3. Last Resort: Default Credentials (Cloud Run / App Engine)
     else:
-        # Option B: Production (Cloud Run, Vercel, etc.) using Environment Variables / Default Credentials
-        # This prevents the "Default app does not exist" crash if the file is missing
-        logger.warning("serviceAccountKey.json not found! Attempting to use Default Credentials.")
+        logger.warning("No Service Account key found. Attempting to use Default Credentials.")
         firebase_admin.initialize_app(options={
             'storageBucket': storage_bucket
         })
 
-# Initialize Clients (Now safe to call because we ensured initialize_app ran above)
+# Initialize Clients
 db = firestore.client()
 bucket = storage.bucket() 
 
