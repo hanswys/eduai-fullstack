@@ -1,12 +1,13 @@
 import os
 import io
-import json  # <--- NEW IMPORT
+import json
 import logging
 import uuid
 import datetime
 import httpx 
 from typing import Optional, List, Dict, Any
 
+# FIXED TYPO: UploadfFile -> UploadFile
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Security
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,14 +29,18 @@ logger = logging.getLogger("backend")
 load_dotenv()
 
 # --- FIREBASE INITIALIZATION ---
+# 1. Fetch Bucket Name and Validate immediately
+storage_bucket = os.getenv("FIREBASE_STORAGE_BUCKET")
+if not storage_bucket:
+    logger.error("CRITICAL: FIREBASE_STORAGE_BUCKET env var is missing.")
+    raise ValueError("FIREBASE_STORAGE_BUCKET environment variable is required.")
+
 if not firebase_admin._apps:
-    storage_bucket = os.getenv("FIREBASE_STORAGE_BUCKET")
     sa_key_env = os.getenv("FIREBASE_SA_KEY")
     
-    # 1. Priority: Load from Environment Variable (Production/Docker)
+    # Priority 1: Load from Environment Variable (Production/Docker)
     if sa_key_env:
         try:
-            # Parse the JSON string from .env into a dictionary
             service_account_info = json.loads(sa_key_env)
             cred = credentials.Certificate(service_account_info)
             firebase_admin.initialize_app(cred, {
@@ -46,7 +51,7 @@ if not firebase_admin._apps:
             logger.error(f"Failed to parse FIREBASE_SA_KEY: {e}")
             raise ValueError("Invalid JSON in FIREBASE_SA_KEY environment variable")
 
-    # 2. Fallback: Load from local file (Local Dev)
+    # Priority 2: Fallback to local file (Local Dev)
     elif os.path.exists("serviceAccountKey.json"):
         cred = credentials.Certificate("serviceAccountKey.json")
         firebase_admin.initialize_app(cred, {
@@ -54,16 +59,22 @@ if not firebase_admin._apps:
         })
         logger.info("Firebase Admin initialized using local serviceAccountKey.json.")
     
-    # 3. Last Resort: Default Credentials (Cloud Run / App Engine)
+    # Priority 3: Default Credentials (Cloud Run / App Engine)
     else:
         logger.warning("No Service Account key found. Attempting to use Default Credentials.")
+        # Note: When using default credentials, we must pass the bucket name 
+        # explicitly in the storage.bucket calls or rely on this options dict. 
         firebase_admin.initialize_app(options={
             'storageBucket': storage_bucket
         })
 
 # Initialize Clients
 db = firestore.client()
-bucket = storage.bucket() 
+
+# CRITICAL FIX: Pass the bucket name explicitly. 
+# This prevents the "ValueError: Storage bucket name not specified" error
+# if the global app config fails to apply the default bucket to the storage client.
+bucket = storage.bucket(name=storage_bucket) 
 
 # --- GEMINI SETUP ---
 GENAI_API_KEY = os.getenv("GOOGLE_API_KEY")
