@@ -68,7 +68,7 @@ app = FastAPI()
 # --- FIX 1: REMOVED TRAILING SLASH FROM VERCEL URL ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://eduai-fullstack.vercel.app"], 
+    allow_origins=["http://localhost:3000", "https://eduai-fullstack.vercel.app", "https://eduai-fullstack-4syx34ewk-hans-projects-02ff92a9.vercel.app"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
